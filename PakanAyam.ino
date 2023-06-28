@@ -167,8 +167,9 @@ void loop() {
       json.set("/humidity", humidity);
       json.set("/feedTemp", temperatureDS);
       
-      if (Firebase.setTimestamp(firebaseData, "/timestamp")) {
+      if (Firebase.setTimestamp(firebaseData, "/timestamp")){
         int timestamp = firebaseData.intData();
+        json.set("/waktu", timestamp);
         Serial.println(Firebase.set(firebaseData, "/sensor", json) ? "Uploaded" : "Not Uploaded");
       } else {
         Serial.print("Gagal menulis data ke Firebase. Kesalahan:. Kesalahan: ");
