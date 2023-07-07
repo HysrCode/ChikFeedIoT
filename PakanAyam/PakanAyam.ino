@@ -41,9 +41,7 @@ FirebaseJson json;
 
 // Variables
 unsigned long p1, p2, p3, p4, p5, p6;
-float temperatureDHT = 0.0;
-float humidity = 0.0;
-float temperatureDS = 0.0;
+int temperatureDHT, temperatureDS, humidity;
 int dataLDR = 100;
 const int minRange = 0;
 const int maxRange = 100;
@@ -96,6 +94,7 @@ void loop() {
 
   // Read sensor data and control LEDs every 1 second
   if (ct - p2 >= 1000) {
+    readLDR();
     readSensorData();
     p2 = ct;
   }
@@ -109,7 +108,7 @@ void loop() {
   }
 
   // Control servo based on Firebase data every 2 seconds
-  if (ct - p4 >= 2000) {
+  if (ct - p4 >= 1000) {
     if (WiFi.status() == WL_CONNECTED) {
       controlServo();
     }
@@ -139,14 +138,18 @@ void waitForWifiConnection() {
 void readSensorData() {
   temperatureDHT = dht.readTemperature();
   humidity = dht.readHumidity();
-  if (isnan(temperatureDHT) || isnan(humidity)) {
-    temperatureDHT = 0.0;
-    humidity = 0.0;
-  }
-
   DSTemp.requestTemperatures();
   temperatureDS = DSTemp.getTempCByIndex(0);
+  if (isnan(temperatureDHT) || isnan(humidity) || temperatureDS < 0) {
+    temperatureDHT = 0;
+    humidity = 0;
+    temperatureDS = 0;
+  }
 
+  
+}
+
+void readLDR() {
   int ldrVal1 = analogRead(LDR_PIN1);
   int ldrVal2 = analogRead(LDR_PIN2);
   int ldrVal3 = analogRead(LDR_PIN3);
@@ -158,21 +161,24 @@ void readSensorData() {
   digitalWrite(LED_PIN2, HIGH);
   digitalWrite(LED_PIN3, HIGH);
 
-  if (ldrVal1 <= 3000) {
-    dataLDR = 80;
-    Serial.println("Pakan Tinggal 50%");
-  } else if (ldrVal2 <= 3000) {
+  if (ldrVal1 <= 2000) {
+    dataLDR = 75;
+    Serial.println("Pakan Tinggal 75%");
+  } else if (ldrVal2 <= 2000) {
     dataLDR = 50;
-    Serial.println("Pakan Tinggal 25%");
-  } else if (ldrVal3 <= 3000) {
+    Serial.println("Pakan Tinggal 50%");
+  } else if (ldrVal3 <= 2000 && ldrVal3> 1000) {
+    dataLDR = 20;
+    Serial.println("akan Tinggal 20%");
+  } else if (ldrVal3 <= 3000 && ldrVal2 <= 3000 && ldrVal1 <= 3000) {
     dataLDR = 0;
-    Serial.println("Pakan Telah Habis");
-  } else {
+    Serial.println("Pakan Ha bis");
+  }
+  else {
+    dataLDR = 100;
     Serial.println("Pakan Terisi");
   }
 }
-
-
 void uploadSensorData(const String& waktuSekarang) {
   json.clear();
   json.set("/feed", dataLDR);
@@ -198,10 +204,10 @@ void uploadHistory(const String& waktuSekarang) {
   json.set("/temp", temperatureDHT);
   json.set("/humidity", humidity);
   json.set("/feedTemp", temperatureDS);
- if (Firebase.get(firebaseData, "/timestamp")) {
+  if (Firebase.get(firebaseData, "/timestamp")) {
     int timestamp = firebaseData.intData();
     json.set("/time", timestamp);
-    Firebase.push(firebaseData, "/history", json);
+    Firebase.push(firebaseData, "use/history", json);
   } else {
     Serial.print("Gagal menulis data ke Firebase. Kesalahan: ");
     Serial.println(firebaseData.errorReason());
