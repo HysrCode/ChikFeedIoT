@@ -6,6 +6,7 @@
 #include "DHT.h"
 #include "time.h"
 #include "sntp.h"
+#include "EEPROM.h"
 #include <Wire.h>
 #include <DS3231.h>
 
@@ -22,7 +23,7 @@ RTClib myRTC;
 #define LED_PIN2 25     // LED pin 2
 #define LED_PIN3 28     // LED pin 3
 #define SERVO_PIN 5     // Servo pin
-
+#define EEPROM_SIZE 64  // Eprom Size (64 kb)
 // WiFi Credentials
 const char* WIFI_SSID = "Mia";
 const char* WIFI_PASSWORD = "12345678";
@@ -45,7 +46,7 @@ int temperatureDHT, temperatureDS, humidity;
 int dataLDR = 100;
 const int minRange = 0;
 const int maxRange = 100;
-
+String defult, time1, time2, time3, time4, time5;
 void setup() {
   Serial.begin(9600);
 
@@ -72,6 +73,8 @@ void setup() {
 
   DSTemp.begin();
   dht.begin();
+
+  EEPROM.begin(EEPROM_SIZE);
 }
 
 void loop() {
@@ -122,6 +125,17 @@ void loop() {
     p5 = ct;
   }
 
+  if (ct - p6 >= 20000) {
+    if (WiFi.status() == WL_CONNECTED) {
+      schedule(time1);
+      schedule(time2);
+      schedule(time3);
+      schedule(time4);
+      schedule(time5);
+    }
+    p6 = ct;
+  }
+
 }
 
 void waitForWifiConnection() {
@@ -145,8 +159,6 @@ void readSensorData() {
     humidity = 0;
     temperatureDS = 0;
   }
-
-  
 }
 
 void readLDR() {
@@ -167,7 +179,7 @@ void readLDR() {
   } else if (ldrVal2 <= 2000) {
     dataLDR = 50;
     Serial.println("Pakan Tinggal 50%");
-  } else if (ldrVal3 <= 2000 && ldrVal3> 1000) {
+  } else if (ldrVal3 <= 2000 && ldrVal3 > 1000) {
     dataLDR = 20;
     Serial.println("akan Tinggal 20%");
   } else if (ldrVal3 <= 3000 && ldrVal2 <= 3000 && ldrVal1 <= 3000) {
@@ -211,6 +223,24 @@ void uploadHistory(const String& waktuSekarang) {
   } else {
     Serial.print("Gagal menulis data ke Firebase. Kesalahan: ");
     Serial.println(firebaseData.errorReason());
+  }
+}
+
+void schedule(const String& times) {
+  //schedule set from firebase
+  dafult = "0:0:0";
+  String timeSaved = EEPROM.read(eepromAddress);
+  if (Firebase.get(firebaseData, "/time/1/data") && Firebase.get(firebaseData, "/time/1/set")) {
+    String getTimes = firebaseData.stringData();
+    bool getTime1State = firebaseData.boolData();
+    if (timeSaved != getTimes) {
+      EEPROM.writeString(0, getTimes);
+      EEPROM.commit();
+      timeSaved = getTimes;
+    }
+    if (getTime1State && timeSaved == times) {
+      controlServo();
+    }
   }
 }
 
